@@ -92,7 +92,7 @@ nav button{box-shadow:none;background:none}nav button.on{text-shadow:0 0 10px va
 .mx .w{background:#1f6b4f;color:#c9ffe9}.mx .x{background:#6b2a2a;color:#ffd0d0}.mx .n{color:#4a5f80}
 details>summary{list-style:none}details>summary::-webkit-details-marker{display:none}
 nav button{font-size:13px}
-#toast{position:fixed;left:50%;top:calc(70px + env(safe-area-inset-top,0px));transform:translateX(-50%);background:#fff;color:#111;padding:10px 16px;border-radius:12px;z-index:20;max-width:90%;text-align:center;display:none}
+#toast{position:fixed;left:50%;top:calc(70px + env(safe-area-inset-top,0px));transform:translateX(-50%);background:#fff;color:#111;padding:10px 16px;border-radius:12px;z-index:40;max-width:90%;text-align:center;display:none}
 #ad{position:fixed;inset:0;background:#000d;z-index:30;display:none;align-items:center;justify-content:center;font-size:20px;text-align:center}
 </style>
 </head>
@@ -172,7 +172,7 @@ const LEGF=o=>`<details class="card" ${o?'open':''}><summary style="cursor:point
 const EC=[{lv:10,g:500,s:20},{lv:20,g:2000,s:80},{lv:35,g:8000,s:300},{lv:42,g:30000,s:900},{lv:45,g:80000,s:2500}];
 const evLv=sp=>EC[SP[sp][2]].lv+((sp*5+3)%9)-4;
 function evolve(id,nx){const m=mon(id),c=EC[m.g];if(!ev(m.sp).includes(nx)||m.lv<evLv(m.sp)||(m.ev||0)>=2)return;if(S.gold<c.g||S.stone<c.s)return toast('재화가 부족해요');S.gold-=c.g;S.stone-=c.s;const h=Object.keys(S.dex).length,o=SP[m.sp][0];m.sp=nx;m.g=SP[nx][2];m.ev=(m.ev||0)+1;S.st.evo++;S.dex[nx]=(S.dex[nx]||0)+1;const nw=Object.keys(S.dex).length>h,un=tierN(S.dex[nx])>tierN(S.dex[nx]-1);save();render();toast(`🌟 ${o} → ${SP[nx][1]} ${G[m.g].n} ${SP[nx][0]} 진화!${nw?' 📖 도감 등록!':''}${un?' 🔓 숨겨진 능력 해금!':''}`)}
-const evBtn=m=>{const l=ev(m.sp);if(!l.length||(m.ev||0)>=2)return'<span class="mu">'+((m.ev||0)>=2?'진화 한계에 도달했어요 (2/2)':'최종 진화 단계')+'</span>';const c=EC[m.g],ok=m.lv>=evLv(m.sp)&&S.gold>=c.g&&S.stone>=c.s;return'<div class="mu">진화 횟수 '+(m.ev||0)+'/2'+(l.length>1?' · 갈림길 진화!':'')+'</div>'+l.map(nx=>`<button class="s" style="${ok?'background:#7c5cff;color:#fff':''}" onclick="evolve(${m.id},${nx})" ${m.lv>=evLv(m.sp)?'':'disabled'}>🌟 진화 → ${SP[nx][0]}<br><span style="font-size:12px">${m.lv>=evLv(m.sp)?nf(c.g)+'G+'+nf(c.s)+'💎':'Lv.'+evLv(m.sp)+' 필요'}</span></button>`).join('')};
+const evBtn=m=>{const l=ev(m.sp);if(!l.length||(m.ev||0)>=2)return'<span class="mu">'+((m.ev||0)>=2?'진화 한계에 도달했어요 (2/2)':'최종 진화 단계')+'</span>';const c=EC[m.g],ok=m.lv>=evLv(m.sp)&&S.gold>=c.g&&S.stone>=c.s;return'<div class="mu">진화 횟수 '+(m.ev||0)+'/2'+(l.length>1?' · 갈림길 진화!':'')+'</div>'+l.map(nx=>`<button class="s" style="${ok?'background:#7c5cff;color:#fff':''}" onclick="evolve(${m.id},${nx})" ${m.lv>=evLv(m.sp)?'':'disabled'}>🌟 진화 → ${SP[nx][1]} ${SP[nx][0]}<br><span style="font-size:12px;font-weight:bold;color:${S.dex[nx]?'#7dffc8':'#ffd36b'}">${S.dex[nx]?'✅ 도감 등록됨 ('+S.dex[nx]+'마리)':'🆕 도감 미등록'}</span><br><span style="font-size:12px">${m.lv>=evLv(m.sp)?nf(c.g)+'G+'+nf(c.s)+'💎':'Lv.'+evLv(m.sp)+' 필요'}</span></button>`).join('')};
 const pickSp=(g,el)=>{const l=SP.map((x,i)=>i).filter(i=>SP[i][2]==g),w=l.map(i=>el&&ELM[i]==el?6:1);let r=Math.random()*w.reduce((a,b)=>a+b,0);for(let k=0;k<l.length;k++){r-=w[k];if(r<0)return l[k]}return l[0]};
 const SL=[['⚔️','검'],['🛡️','갑옷'],['💍','반지']],PF=['낡은','단단한','빛나는','고대의'];
 const TR=[{n:'단기',s:60,m:1,e:.01,i:.35,q:0},{n:'중기',s:300,m:4.5,e:.02,i:.6,q:1},{n:'장기',s:900,m:15,e:.04,i:.9,q:2},{n:'특급',s:1800,m:32,e:.06,i:.95,q:3},{n:'심층',s:3600,m:66,e:.09,i:1,q:4},{n:'원정',s:10800,m:200,e:.14,i:1,q:5},{n:'대원정',s:28800,m:540,e:.2,i:1,q:6}],dm=s=>s<3600?s/60+'분':s/3600+'시간',DG='display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px';
@@ -527,18 +527,19 @@ const body=error?'<p class="mu">불러오지 못했어요: '+esc(cErr(error))+'<
 data.map((r,i)=>'<tr style="'+(cu&&r.user_id==cu.id?'background:#ffb45422;':'')+'border-top:1px solid var(--ln)"><td>'+(i<3?['🥇','🥈','🥉'][i]:i+1)+'</td><td>'+esc(r.nickname)+'</td><td>'+r.max_stage+'</td><td>'+nf(Number(r.power))+'</td><td>'+r.dex+'</td></tr>').join('')+'</table></div>');
 o.innerHTML='<div class="card" style="width:min(94%,440px)"><h2 style="margin-top:0">🏆 랭킹</h2>'+body+'<div class="row" style="margin-top:10px"><button class="s grow" onclick="closeSet()">닫기</button></div></div>'}
 
-async function cIn(){if(!sb)return;const email=ce('ae').value.trim(),pw=ce('ap').value;
-if(!email||!pw)return toast('이메일과 비밀번호를 입력해 주세요');
-const{data,error}=await sb.auth.signInWithPassword({email,password:pw});
-if(error)return toast(cErr(error));cu=data.user;toast('로그인했어요');await cSync();openSet()}
+const cm=t=>{const m=ce('am');if(m)m.textContent=t;toast(t)};
+async function cIn(){if(!sb)return cm('서버 연결에 실패했어요. 새로고침 후 다시 시도해 주세요');const email=ce('ae').value.trim(),pw=ce('ap').value;
+if(!email||!pw)return cm('이메일과 비밀번호를 입력해 주세요');
+cm('로그인 중…');const{data,error}=await sb.auth.signInWithPassword({email,password:pw});
+if(error)return cm(cErr(error));cu=data.user;cm('로그인했어요');await cSync();openSet()}
 
-async function cUp(){if(!sb)return;const email=ce('ae').value.trim(),pw=ce('ap').value,nick=ce('an').value.trim();
-if(!email||pw.length<6)return toast('이메일과 6자 이상 비밀번호가 필요해요');
-if(!/^[가-힣A-Za-z0-9_]{2,12}$/.test(nick))return toast('닉네임은 2~12자 (한글·영문·숫자·_)예요');
-const{data,error}=await sb.auth.signUp({email,password:pw,options:{data:{nickname:nick}}});
-if(error)return toast(cErr(error));
-if(!data.session)return toast('가입 완료! 이메일 인증 후 로그인해 주세요');
-cu=data.user;await cPush(true);toast('가입했어요!');openSet()}
+async function cUp(){if(!sb)return cm('서버 연결에 실패했어요. 새로고침 후 다시 시도해 주세요');const email=ce('ae').value.trim(),pw=ce('ap').value,nick=ce('an').value.trim();
+if(!email||pw.length<6)return cm('이메일과 6자 이상 비밀번호가 필요해요');
+if(!/^[가-힣A-Za-z0-9_]{2,12}$/.test(nick))return cm('닉네임은 2~12자 (한글·영문·숫자·_)예요');
+cm('가입 중…');const{data,error}=await sb.auth.signUp({email,password:pw,options:{data:{nickname:nick}}});
+if(error)return cm(cErr(error));
+if(!data.session)return cm('가입 완료! 이메일 인증 후 로그인해 주세요');
+cu=data.user;await cPush(true);cm('가입했어요!');openSet()}
 
 async function cOut(){if(!sb)return;await cPush(true);await sb.auth.signOut();cu=null;toast('로그아웃했어요');openSet()}
 
@@ -547,7 +548,7 @@ const bx='margin:8px 0 12px;padding:10px;border:1px solid var(--ln);border-radiu
 if(!cOn())return'<div id="acct" class="mu" style="'+bx+';border-style:dashed">☁️ 계정·클라우드 저장·랭킹은 서버를 연결하면 쓸 수 있어요.</div>';
 if(cu){const nick=(cu.user_metadata&&cu.user_metadata.nickname)||cu.email;
 return'<div id="acct" style="'+bx+'"><div><b>'+esc(nick)+'</b> <span class="mu">'+esc(cu.email)+'</span></div><div class="row" style="margin-top:8px"><button class="s grow" onclick="cPush()">☁️ 지금 저장</button><button class="s grow" onclick="cSync()">⬇️ 불러오기</button></div><div class="row" style="margin-top:6px"><button class="s grow" onclick="cRank()">🏆 랭킹</button><button class="s grow" onclick="cOut()">로그아웃</button></div></div>'}
-return'<div id="acct" style="'+bx+'"><div><b>☁️ 계정</b> <span class="mu">(다른 기기에서도 이어하기)</span></div><p><input type="email" id="ae" placeholder="이메일" autocomplete="email" aria-label="이메일"></p><p><input type="password" id="ap" placeholder="비밀번호 (6자 이상)" autocomplete="current-password" aria-label="비밀번호"></p><p><input type="text" id="an" placeholder="닉네임 (가입할 때만, 2~12자)" maxlength="12" aria-label="닉네임"></p><div class="row"><button class="s grow" onclick="cIn()">로그인</button><button class="grow" onclick="cUp()">가입</button></div><div class="row" style="margin-top:6px"><button class="s grow" onclick="cRank()">🏆 랭킹 보기</button></div></div>'}
+return'<div id="acct" style="'+bx+'"><div><b>☁️ 계정</b> <span class="mu">(다른 기기에서도 이어하기)</span></div><p><input type="email" id="ae" placeholder="이메일" autocomplete="email" aria-label="이메일"></p><p><input type="password" id="ap" placeholder="비밀번호 (6자 이상)" autocomplete="current-password" aria-label="비밀번호"></p><p><input type="text" id="an" placeholder="닉네임 (가입할 때만, 2~12자)" maxlength="12" aria-label="닉네임"></p><div class="row"><button class="s grow" onclick="cIn()">로그인</button><button class="grow" onclick="cUp()">가입</button></div><div class="row" style="margin-top:6px"><button class="s grow" onclick="cRank()">🏆 랭킹 보기</button></div><div id="am" class="mu" style="margin-top:8px;min-height:1.2em;color:#ffb454"></div></div>'}
 
 const _openSet=openSet;
 openSet=function(){_openSet();const c=ce('st').querySelector('.card'),h=c&&c.querySelector('h2');if(h)h.insertAdjacentHTML('afterend',acctHtml())};
