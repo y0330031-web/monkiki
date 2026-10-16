@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>알 부화 몬스터 키우기</title>
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7044573074037726" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet">
 <style>
@@ -573,10 +574,10 @@ const AD_CLIENT='ca-pub-7044573074037726',AD_SLOT='YOUR_ADSENSE_SLOT_ID';
 (function(){
 if(/^YOUR_/.test(AD_CLIENT)||/^YOUR_/.test(AD_SLOT))return;
 const box=document.getElementById('adb');if(!box)return;
-const sc=document.createElement('script');sc.async=true;sc.crossOrigin='anonymous';
+if(!document.querySelector('script[src*="adsbygoogle.js"]')){const sc=document.createElement('script');sc.async=true;sc.crossOrigin='anonymous';
 sc.src='https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client='+encodeURIComponent(AD_CLIENT);
 sc.onerror=()=>{box.style.display='none'};
-document.head.appendChild(sc);
+document.head.appendChild(sc)}
 box.innerHTML='<div class="adl">광고</div><ins class="adsbygoogle" style="display:block" data-ad-client="'+AD_CLIENT+'" data-ad-slot="'+AD_SLOT+'" data-ad-format="auto" data-full-width-responsive="true"></ins>';
 try{(window.adsbygoogle=window.adsbygoogle||[]).push({})}catch(e){}
 })();
