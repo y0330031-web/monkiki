@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>알 부화 몬스터 키우기</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet">
 <style>
 :root{--bg:#0f1b2d;--pn:#172a45;--ln:#2b4468;--tx:#e8eef7;--mu:#8fa3bf;--ac:#ffb454;--ok:#4fd1a5;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
@@ -34,7 +35,7 @@ nav button{flex:1;background:none;color:var(--mu);border-radius:0;padding:10px 0
 nav button.on{color:var(--ac)}
 .dx{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.dc{background:var(--pn);border:1px solid var(--ln);border-radius:12px;padding:6px 2px;text-align:center;font-size:12px;min-width:0;overflow-wrap:anywhere}.dc .big{font-size:28px}
 #st{position:fixed;inset:0;background:#000a;z-index:25;display:none;align-items:center;justify-content:center}
-input[type=text]{font:inherit;width:100%;background:#0f1b2d;color:var(--tx);border:1px solid var(--ln);border-radius:8px;padding:8px}
+input[type=text],input[type=email],input[type=password]{font:inherit;width:100%;background:#0f1b2d;color:var(--tx);border:1px solid var(--ln);border-radius:8px;padding:8px}
 .mg{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
 .tl{position:relative;background:var(--pn);color:var(--tx);border:2px solid var(--ln);border-radius:12px;padding:6px 2px;text-align:center;min-width:0}
 .tl .te{font-size:28px;line-height:1.2}.tl .tn{font-size:12px;white-space:normal;word-break:keep-all;line-height:1.15;height:2.3em;overflow:hidden}.tl .el{position:absolute;top:2px;left:4px;font-size:11px}
@@ -456,6 +457,109 @@ try{if(u)new URL(u)}catch(e){return toast('주소 형식이 올바르지 않아�
 S.boss={on:document.getElementById('bo').checked,url:u,mode:document.getElementById('bm').value,title:document.getElementById('bt').checked};
 applyTitle();save();closeSet();toast('저장했어요');if(test)setTimeout(bossGo,300)}
 load();refreshBn();applyTitle();dunInit();catchUp();render();lastAch=achCount();setInterval(tick,1000);
+</script>
+<script>
+/* ===== 클라우드(Supabase) 연동 =====
+   아래 두 값을 본인 프로젝트 값으로 바꿔 주세요.
+   (Supabase > Project Settings > API > Project URL / anon public key)
+   anon 키는 공개돼도 안전한 키예요. service_role 키는 절대 넣지 마세요. */
+const SB_URL='https://xetdlczkljtwlbrmhnwj.supabase.co',SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhldGRsY3prbGp0d2xicm1obndqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIxMjY4MjAsImV4cCI6MjEwNzcwMjgyMH0.Kxs4KyxMU2C8yZ_H5sAL5fCnVvSAWjfotl08-gV8COA';
+let sb=null,cu=null,cLast=0,cConf=false,cSyncing=false,lastP=0;
+const cOn=()=>!!window.supabase&&!/^YOUR_/.test(SB_URL);
+const ce=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const cErr=e=>{const m=(e&&e.message)||'';
+if(/Invalid login/i.test(m))return'이메일 또는 비밀번호가 맞지 않아요';
+if(/already registered|already been registered/i.test(m))return'이미 가입된 이메일이에요';
+if(/not confirmed/i.test(m))return'이메일 인증을 먼저 해 주세요';
+if(/rate limit/i.test(m))return'잠시 후 다시 시도해 주세요';
+if(/valid email|invalid format/i.test(m))return'이메일 형식이 올바르지 않아요';
+if(/Failed to fetch|NetworkError/i.test(m))return'네트워크 연결을 확인해 주세요';
+return m||'오류가 발생했어요'};
+
+async function cInit(){if(!cOn())return;
+sb=window.supabase.createClient(SB_URL,SB_KEY);
+const{data}=await sb.auth.getSession();cu=data.session?data.session.user:null;
+sb.auth.onAuthStateChange((_e,s)=>{cu=s?s.user:null});
+if(cu)cSync()}
+
+/* 클라우드 ↔ 이 기기 비교 후 불러오기/올리기 */
+async function cSync(){if(!sb||!cu||cSyncing)return;cSyncing=true;
+try{const{data,error}=await sb.from('saves').select('data,updated_ms').eq('user_id',cu.id).maybeSingle();
+if(error)throw error;
+if(!data){cSyncing=false;return cPush(true)}
+const sv=Number(data.updated_ms);cLast=sv;
+if(S.cts&&S.cts>=sv){cSyncing=false;cConf=false;return cPush(true)}
+const fresh=!S.mons.length&&!S.st.hatch;
+const ms=data.data&&data.data.st&&data.data.st.maxS||1;
+if(fresh||confirm('클라우드에 저장된 게임이 있어요.\n(최고 '+ms+'단계 · '+new Date(sv).toLocaleString()+')\n\n[확인] 클라우드 게임 불러오기\n[취소] 이 기기 게임 유지 (이후 저장하면 클라우드를 덮어써요)')){cApply(data.data,sv);return}
+S.cts=sv;save();cConf=false;cSyncing=false;cPush(true)
+}catch(e){toast('동기화 실패: '+cErr(e))}finally{cSyncing=false}}
+
+function cApply(d,sv){const b=S.boss;d.boss=b;d.cts=sv;
+try{localStorage.setItem(K,JSON.stringify(d))}catch(e){return toast('이 기기에 저장하지 못했어요')}
+location.reload()}
+
+async function cPush(quiet){if(!sb||!cu)return;
+try{save();const d=JSON.parse(JSON.stringify(S));delete d.boss;delete d.cts;
+const{data,error}=await sb.rpc('save_game',{p_data:d,p_base_ms:S.cts||null});
+if(error)throw error;
+if(!data.ok){
+if(data.reason=='conflict'){cConf=true;cLast=Number(data.server_ms)||cLast;
+if(quiet)return toast('다른 기기에 더 최근 저장이 있어요. ⚙️ 설정에서 불러오기를 눌러 확인해 주세요');
+return cSync()}
+if(data.reason=='too_fast')return quiet?0:toast('잠시 후 다시 시도해 주세요');
+return toast('저장 실패: '+data.reason)}
+S.cts=Number(data.server_ms);cLast=S.cts;lastP=Date.now();save();
+cScore();if(!quiet)toast('☁️ 클라우드에 저장했어요')
+}catch(e){if(!quiet)toast('저장 실패: '+cErr(e))}}
+
+async function cScore(){try{
+const ps=S.mons.map(pw).sort((a,b)=>b-a).slice(0,3).reduce((a,b)=>a+b,0);
+await sb.rpc('submit_score',{p_stage:Math.max(S.st.maxS||1,S.hunt.s),p_power:ps,p_dex:Object.keys(S.dex).length,p_mons:S.mons.length})}catch(e){}}
+
+async function cRank(){if(!sb)return toast('서버가 아직 연결되지 않았어요');
+const o=ce('st');o.style.display='flex';
+o.innerHTML='<div class="card" style="width:min(94%,440px)"><h2 style="margin-top:0">🏆 랭킹</h2><p class="mu">불러오는 중…</p></div>';
+const{data,error}=await sb.from('leaderboard').select('user_id,nickname,max_stage,power,dex').order('max_stage',{ascending:false}).order('power',{ascending:false}).limit(50);
+const body=error?'<p class="mu">불러오지 못했어요: '+esc(cErr(error))+'</p>':(!data.length?'<p class="mu">아직 기록이 없어요. 첫 번째 주인공이 되어 보세요!</p>':
+'<div style="max-height:60vh;overflow:auto"><table style="width:100%;border-collapse:collapse;font-size:14px"><tr class="mu"><td>#</td><td>닉네임</td><td>최고 단계</td><td>전투력(상위3)</td><td>도감</td></tr>'+
+data.map((r,i)=>'<tr style="'+(cu&&r.user_id==cu.id?'background:#ffb45422;':'')+'border-top:1px solid var(--ln)"><td>'+(i<3?['🥇','🥈','🥉'][i]:i+1)+'</td><td>'+esc(r.nickname)+'</td><td>'+r.max_stage+'</td><td>'+nf(Number(r.power))+'</td><td>'+r.dex+'</td></tr>').join('')+'</table></div>');
+o.innerHTML='<div class="card" style="width:min(94%,440px)"><h2 style="margin-top:0">🏆 랭킹</h2>'+body+'<div class="row" style="margin-top:10px"><button class="s grow" onclick="closeSet()">닫기</button></div></div>'}
+
+async function cIn(){if(!sb)return;const email=ce('ae').value.trim(),pw=ce('ap').value;
+if(!email||!pw)return toast('이메일과 비밀번호를 입력해 주세요');
+const{data,error}=await sb.auth.signInWithPassword({email,password:pw});
+if(error)return toast(cErr(error));cu=data.user;toast('로그인했어요');await cSync();openSet()}
+
+async function cUp(){if(!sb)return;const email=ce('ae').value.trim(),pw=ce('ap').value,nick=ce('an').value.trim();
+if(!email||pw.length<6)return toast('이메일과 6자 이상 비밀번호가 필요해요');
+if(!/^[가-힣A-Za-z0-9_]{2,12}$/.test(nick))return toast('닉네임은 2~12자 (한글·영문·숫자·_)예요');
+const{data,error}=await sb.auth.signUp({email,password:pw,options:{data:{nickname:nick}}});
+if(error)return toast(cErr(error));
+if(!data.session)return toast('가입 완료! 이메일 인증 후 로그인해 주세요');
+cu=data.user;await cPush(true);toast('가입했어요!');openSet()}
+
+async function cOut(){if(!sb)return;await cPush(true);await sb.auth.signOut();cu=null;toast('로그아웃했어요');openSet()}
+
+function acctHtml(){
+const bx='margin:8px 0 12px;padding:10px;border:1px solid var(--ln);border-radius:10px';
+if(!cOn())return'<div id="acct" class="mu" style="'+bx+';border-style:dashed">☁️ 계정·클라우드 저장·랭킹은 서버를 연결하면 쓸 수 있어요.</div>';
+if(cu){const nick=(cu.user_metadata&&cu.user_metadata.nickname)||cu.email;
+return'<div id="acct" style="'+bx+'"><div><b>'+esc(nick)+'</b> <span class="mu">'+esc(cu.email)+'</span></div><div class="row" style="margin-top:8px"><button class="s grow" onclick="cPush()">☁️ 지금 저장</button><button class="s grow" onclick="cSync()">⬇️ 불러오기</button></div><div class="row" style="margin-top:6px"><button class="s grow" onclick="cRank()">🏆 랭킹</button><button class="s grow" onclick="cOut()">로그아웃</button></div></div>'}
+return'<div id="acct" style="'+bx+'"><div><b>☁️ 계정</b> <span class="mu">(다른 기기에서도 이어하기)</span></div><p><input type="email" id="ae" placeholder="이메일" autocomplete="email" aria-label="이메일"></p><p><input type="password" id="ap" placeholder="비밀번호 (6자 이상)" autocomplete="current-password" aria-label="비밀번호"></p><p><input type="text" id="an" placeholder="닉네임 (가입할 때만, 2~12자)" maxlength="12" aria-label="닉네임"></p><div class="row"><button class="s grow" onclick="cIn()">로그인</button><button class="grow" onclick="cUp()">가입</button></div><div class="row" style="margin-top:6px"><button class="s grow" onclick="cRank()">🏆 랭킹 보기</button></div></div>'}
+
+const _openSet=openSet;
+openSet=function(){_openSet();const c=ce('st').querySelector('.card'),h=c&&c.querySelector('h2');if(h)h.insertAdjacentHTML('afterend',acctHtml())};
+
+/* '처음부터 시작' 후에도 클라우드 기록이 되살아나지 않게 처리 */
+const _doReset=doReset;
+doReset=function(){_doReset();if(cu&&cLast){S.cts=cLast;save();setTimeout(()=>cPush(true),6000)}};
+
+/* 자동 저장: 10분마다 + 탭을 숨길 때 */
+setInterval(()=>{if(cu&&!cConf&&document.visibilityState=='visible')cPush(true)},600000);
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState=='hidden'&&cu&&!cConf&&Date.now()-lastP>120000)cPush(true)});
+cInit();
 </script>
 </body>
 </html>
