@@ -292,7 +292,18 @@ function sendAll(t){const l=S.mons.filter(m=>m.st=='idle');if(!l.length)return;l
 const dEnd=d=>d.t0+TR[d.t].s*1000;
 function claim(d,u){S.st.disp++;const m=mon(d.m),T=TR[d.t],oo=Math.ceil(T.m/2);S.ore+=oo;u.o+=oo;if(m)m.st='idle';const p=m?pw(m):10,g=gm((10+(m?m.lv:1)*3)*(1+(m?m.g:0)*.3)*T.m*(1+BN.r/100)),s=sm(Math.ceil(T.m*(1+Math.random()*2))*(1+BN.r/100));S.gold+=g;S.stone+=s;u.g+=g;u.s+=s;if(Math.random()<T.i)u.i.push(mkItem(p/6+T.q*5));if(Math.random()<T.e*(1+BN.d/100)){giveEgg();u.e++}}
 const dTxt=u=>`골드 +${nf(u.g)}, 성장석 +${nf(u.s)}, 강화석 +${nf(u.o)}`+(u.i.length?`, 장비 ${u.i.length}개`+(u.i.length==1?' ('+itN(u.i[0])+')':''):'')+(u.e?`, 🥚 알 ${u.e}개!`:'');
-function collect(i){const d=S.disp[i];if(!d||now()<dEnd(d))return;const u={g:0,s:0,o:0,i:[],e:0};claim(d,u);S.disp.splice(i,1);save();render();toast('파견 완료: '+dTxt(u))}
+function collect(i){const d=S.disp[i];if(!d)return;if(now()<dEnd(d))return recall(i);const u={g:0,s:0,o:0,i:[],e:0};claim(d,u);S.disp.splice(i,1);save();render();toast('파견 완료: '+dTxt(u))}
+/* 중간 회수: 경과 시간 비율의 절반만큼 골드·성장석·강화석 (알·장비는 없음) */
+function dRv(d){const m=mon(d.m),T=TR[d.t],f=Math.max(0,Math.min(1,(now()-d.t0)/(dEnd(d)-d.t0)));
+return{f,g:Math.floor(gm((10+(m?m.lv:1)*3)*(1+(m?m.g:0)*.3)*T.m*(1+BN.r/100))*f*.5),s:Math.floor(Math.ceil(T.m*2)*(1+BN.r/100)*(1+BN.g/100)*f*.5),o:Math.floor(Math.ceil(T.m/2)*f*.5)}}
+function dRtxt(v){return'🪙'+nf(v.g)+' 💎'+nf(v.s)+' 🔨'+nf(v.o)}
+function dRapply(d,v){S.gold+=v.g;S.stone+=v.s;S.ore+=v.o;const m=mon(d.m);if(m)m.st='idle'}
+function recall(i){const d=S.disp[i];if(!d)return;if(now()>=dEnd(d))return collect(i);const m=mon(d.m),v=dRv(d);
+if(!confirm((m?nm(m):'몬스터')+'을(를) 중간에 회수할까요?\n\n진행률 '+Math.floor(v.f*100)+'%\n회수 보상: '+dRtxt(v)+'\n(알·장비는 나오지 않아요. 끝까지 기다리면 보상이 훨씬 커요)'))return;
+dRapply(d,v);S.disp.splice(i,1);save();render();toast('회수했어요: '+dRtxt(v))}
+function recallAll(){const l=S.disp.filter(d=>d&&now()<dEnd(d));if(!l.length)return;const t={g:0,s:0,o:0};l.forEach(d=>{const v=dRv(d);t.g+=v.g;t.s+=v.s;t.o+=v.o});
+if(!confirm('진행 중인 파견 '+l.length+'마리를 모두 회수할까요?\n\n회수 보상 합계: '+dRtxt(t)+'\n(알·장비는 나오지 않아요. 끝까지 기다리면 보상이 훨씬 커요)'))return;
+S.disp=S.disp.filter(d=>{if(d&&now()<dEnd(d)){dRapply(d,dRv(d));return false}return true});save();render();toast(l.length+'마리 회수: '+dRtxt(t))}
 function collectAll(){const u={g:0,s:0,o:0,i:[],e:0};let n=0;S.disp=S.disp.filter(d=>{if(now()>=dEnd(d)){claim(d,u);n++;return false}return true});if(!n)return;save();render();toast(`${n}마리 수령: `+dTxt(u))}
 
 let dsel=null;
@@ -349,7 +360,7 @@ ${SHOP.map(e=>`<div class="row" style="margin-top:10px"><div class="grow">${e.n}
 mons(){if(mv=='e')return eqView();let ms=[...S.mons].sort((a,b)=>pw(b)-pw(a));const all=ms.length,un=S.items.filter(i=>!i.o).length;if(mf>=0)ms=ms.filter(m=>m.g==mf);
 return`${mvT()}<h2>내 몬스터 (${all})</h2><div class="card row"><div class="grow">장비 ${S.items.length}개 <span class="mu">(미장착 ${un})</span></div><button class="s" onclick="autoEq()">자동 장착</button><button class="s" ${un?'':'disabled'} onclick="sellBag()">미장착 판매</button></div>
 <div class="row" style="flex-wrap:wrap;gap:6px;margin-bottom:8px">${['전체',...G.map(g=>g.n)].map((n,k)=>`<button class="s" style="padding:4px 10px;${mf==k-1?'outline:2px solid var(--ac)':''}" onclick="mf=${k-1};render()">${n}</button>`).join('')}</div>
-<div class="mg">${ms.map(m=>`<button class="tl g${m.g}" style="border-color:${G[m.g].c};--gc:${G[m.g].c}" onclick="sel=${m.id};render()"><span class="el">${EL[ELM[m.sp]][1]}</span><div class="te">${SP[m.sp][1]}</div><div class="tn">${SP[m.sp][0]}</div><div class="mu">Lv.${m.lv}${m.st=='hunt'?' ⚔️':m.st=='disp'?' 🧭':''}</div></button>`).join('')}</div>${ms.length?'':'<p class="mu">해당하는 몬스터가 없어요.</p>'}`},
+<div class="mg">${ms.map(m=>`<button class="tl g${m.g}" style="border-color:${G[m.g].c};--gc:${G[m.g].c}" onclick="sel=${m.id};render()"><span class="el">${EL[ELM[m.sp]][1]}</span><div class="te">${SP[m.sp][1]}</div><div class="tn">${SP[m.sp][0]}</div><div class="mu">Lv.${m.lv}${m.st=='hunt'?' ⚔️':m.st=='disp'?(m.tr?' 🏋️':' 🧭'):''}</div></button>`).join('')}</div>${ms.length?'':'<p class="mu">해당하는 몬스터가 없어요.</p>'}`},
 hunt(){const H=S.hunt,he=hEl(H.s),boss=H.s%10==0,mx=ehp(H.s),hp=H.hp==null?mx:Math.max(0,H.hp),pt=S.mons.filter(m=>m.st=='hunt');
 return`<h2 id="hh">사냥터 ${H.s}단계 ${boss?'👑 보스':''}${H.lock?' 🌾 파밍 중':''}</h2>
 <div class="arena" style="height:auto;min-height:170px;padding:10px 14px;background:${ARB(he)}"><div class="side">${pt.map((m,i)=>`<div class="pm${m.dn>0?' ko':''}" id="hp${i}" style="display:flex;align-items:center;gap:6px;text-align:left"><div class="te idle i${(m.sp+3)%5}" style="font-size:30px;animation-delay:${i*.3}s">${SP[m.sp][1]}</div><div style="min-width:0"><div style="white-space:nowrap">${SP[m.sp][0]}</div><div class="bar" style="height:6px;width:72px;margin:2px 0"><i id="hb${i}" style="width:${Math.max(0,(m.hp==null?mhp(m):m.hp)/mhp(m)*100)}%"></i></div>${mt(mul(ELM[m.sp],he))}</div></div>`).join('')||'<div class="mu" style="max-width:150px">몬스터 탭에서 사냥에 편성해 주세요</div>'}</div><div class="en" id="hen" style="font-size:64px;filter:drop-shadow(0 0 10px ${EL[he][2]})"><span class="idle" style="animation-duration:2.2s">${boss?'👑':EMJ[H.s%4]}</span></div></div>
@@ -360,8 +371,8 @@ disp(){const av=S.mons.filter(m=>m.st=='idle'),dn=S.disp.filter(d=>now()>=dEnd(d
 return`<h2>파견</h2>
 <div class="card"><div>쉬는 몬스터 <b>${av.length}</b>마리</div><div class="mu" style="margin:4px 0 8px">사냥 중인 몬스터는 제외돼요. 시간이 길수록 보상이 커요.</div><div style="${DG}">${TR.map((t,k)=>`<button class="grow" ${av.length?'':'disabled'} onclick="sendAll(${k})">전체 ${t.n} ${dm(t.s)}</button>`).join('')}</div></div>
 <div class="card"><div class="mu">개별 파견</div><select id="sel" onchange="dsel=this.value;render()">${av.map(m=>`<option value="${m.id}" ${m===dsm?'selected':''}>${SP[m.sp][1]} ${nm(m)} Lv.${m.lv}</option>`).join('')||'<option value="">보낼 수 있는 몬스터 없음</option>'}</select><div style="margin-top:8px;${DG}">${TR.map((t,k)=>`<button class="s grow" onclick="sendD(${k})">${t.n} ${dm(t.s)}</button>`).join('')}</div>${dPvHtml(dsm)}</div>
-<div class="row" style="margin:10px 0"><h2 style="margin:0" class="grow">파견 중 (${S.disp.length})</h2>${dn?`<button onclick="collectAll()">모두 수령 (${dn})</button>`:''}</div>
-<div class="mg">${S.disp.map((d,i)=>{const m=mon(d.m),e=dEnd(d),r=Math.max(0,Math.ceil((e-now())/1000));return`<button class="tl g${m.g}" style="border-color:${G[m.g].c};--gc:${G[m.g].c}" onclick="collect(${i})"><div class="te">${SP[m.sp][1]}</div><div class="tn">${nm(m)}</div>${r?`<div class="mu" data-end="${e}">${fmt(r)}</div>`:'<div style="color:#4fd1a5">✅ 수령</div>'}</button>`}).join('')}</div>${S.disp.length?'':'<p class="mu">파견 중인 몬스터가 없어요.</p>'}`},
+<div class="row" style="margin:10px 0"><h2 style="margin:0" class="grow">파견 중 (${S.disp.length})</h2>${S.disp.length>dn?'<button class="s" onclick="recallAll()">↩ 전체 회수</button>':''}${dn?`<button onclick="collectAll()">모두 수령 (${dn})</button>`:''}</div>
+<div class="mg">${S.disp.map((d,i)=>{const m=mon(d.m),e=dEnd(d),r=Math.max(0,Math.ceil((e-now())/1000));return`<button class="tl g${m.g}" style="border-color:${G[m.g].c};--gc:${G[m.g].c}" onclick="collect(${i})"><div class="te">${SP[m.sp][1]}</div><div class="tn">${nm(m)}</div>${r?`<div class="mu" data-end="${e}">${fmt(r)}</div><div class="mu" style="font-size:11px">↩ 눌러서 회수</div>`:'<div style="color:#4fd1a5">✅ 수령</div>'}</button>`}).join('')}</div>${S.disp.length?'':'<p class="mu">파견 중인 몬스터가 없어요.</p>'}`},
 dex(){const t=SP.length,g=Object.keys(S.dex).length;
 return`<h2>도감 ${g}/${t}</h2><div class="bar"><i style="width:${g/t*100}%"></i></div><p class="mu">★ 같은 종을 3 · 7 · 15마리 모으면 숨겨진 능력이 해금돼요 (알 부화와 진화 모두 포함). 능력을 해금한 종은 이후 같은 몬스터가 부화되면 자동으로 분해돼 보상으로 바뀌어요.</p><div class="card"><div class="mu">보유효과 합계 <span style="font-size:12px">(같은 종은 가장 높은 레벨 1마리만 적용)</span></div><div class="row" style="flex-wrap:wrap;gap:6px;margin-top:6px">${Object.keys(EF).map(k=>`<span class="tag" style="background:${EL[k][2]}">${EF[k][1]} ${EF[k][0]} +${BN[k].toFixed(1)}%</span>`).join('')}</div></div>${LEGF(1)}<div class="row" style="flex-wrap:wrap;gap:6px">${['전체',...G.map(x=>x.n)].map((n,k)=>`<button class="s" style="padding:4px 10px;${df==k-1?'outline:2px solid var(--ac)':''}" onclick="df=${k-1};render()">${n}</button>`).join('')}</div>`+G.map((q,gi)=>{if(df>=0&&df!=gi)return'';const l=SP.map((x,i)=>[x,i]).filter(x=>x[0][2]==gi),n=l.filter(x=>S.dex[x[1]]).length;
 return`<h2 style="color:${q.c}">${q.n} ${n}/${l.length}</h2><div class="dx">${l.map(([x,i])=>S.dex[i]?`<div class="dc" style="border-color:${q.c}"><div class="big">${x[1]}</div>${EL[ELM[i]][1]} ${x[0]}<div class="mu">${S.dex[i]}마리 ${'★'.repeat(tierN(S.dex[i]))}${'☆'.repeat(3-tierN(S.dex[i]))}<br>${ev(i).length?'→ '+ev(i).map(n=>S.dex[n]?SP[n][0]:'???').join(' / ')+' (Lv.'+evLv(i)+')':'최종'}</div></div>`:`<div class="dc"><div class="big" style="filter:brightness(0);opacity:.4">${x[1]}</div>???</div>`).join('')}</div>`}).join('')},
@@ -403,7 +414,7 @@ document.getElementById('nv').innerHTML=TABS.map(t=>`<button class="${t[0]==tab?
 document.getElementById('main').innerHTML=V[tab]();shownS=S.hunt.s;det()}
 function done(){return S.inc.filter(c=>c&&now()>=c.t0+c.dur*1000).length+S.disp.filter(d=>d&&now()>=dEnd(d)).length}
 let tk=0;
-function tick(){catchUp();const c=done();if((tab!='disp'&&tab!='mons'&&tab!='dex'&&tab!='hunt'&&tab!='ach')||c!=lastC)render();else{document.querySelectorAll('[data-end]').forEach(e=>e.textContent=fmt(Math.max(0,Math.ceil((+e.dataset.end-now())/1000))));const d=document.querySelectorAll('#hd div');if(d.length==4){d[0].textContent='🪙 '+nf(S.gold);d[1].textContent='💎 '+nf(S.stone);d[2].textContent='🥚 '+S.eggs.length;d[3].textContent='🔨 '+nf(S.ore)}if(tab=='hunt')huntUpd()}lastC=c;const ac=achCount();if(ac>lastAch)toast('🏆 새 업적을 달성했어요! 업적 탭에서 받아 가세요');if(ac!=lastAch){const nb=document.querySelectorAll('#nv button');if(nb.length==7)nb[6].innerHTML='🏆'+(ac?'🔴':'')+'<br>업적'}lastAch=ac;if(++tk%5==0)save()}
+function tick(){catchUp();const c=done();if((tab!='disp'&&tab!='mons'&&tab!='dex'&&tab!='hunt'&&tab!='ach')||c!=lastC)render();else{document.querySelectorAll('[data-end]').forEach(e=>e.textContent=fmt(Math.max(0,Math.ceil((+e.dataset.end-now())/1000))));const d=document.querySelectorAll('#hd div');if(d.length==4){d[0].textContent='🪙 '+nf(S.gold);d[1].textContent='💎 '+nf(S.stone);d[2].textContent='🥚 '+S.eggs.length;d[3].textContent='🔨 '+nf(S.ore)}if(tab=='hunt')huntUpd()}lastC=c;const ac=achCount();if(ac>lastAch)toast('🏆 새 업적을 달성했어요! 업적 탭에서 받아 가세요');if(ac!=lastAch){const nb=document.querySelectorAll('#nv button');if(nb.length==TABS.length)nb[6].innerHTML='🏆'+(ac?'🔴':'')+'<br>업적'}lastAch=ac;if(++tk%5==0)save()}
 const applyTitle=()=>{document.title=S.boss.title?'업무 문서':'알 부화 몬스터 키우기'};
 function det(){const e=document.getElementById('dt'),m=sel&&mon(sel);
 if(swp&&!mon(swp))swp=null;
@@ -414,7 +425,7 @@ const h=`<div class="card" style="width:min(94%,420px);max-height:85%;overflow:a
 <div style="display:grid;gap:8px">${li.map(x=>`<button class="s row" style="text-align:left" onclick="doSwap(${x.id})"><span class="big" style="font-size:28px">${SP[x.sp][1]}</span><span class="grow">${nm(x)} <span class="mu">Lv.${x.lv}</span><br><span class="mu">전투력 ${nf(pw(x))} · 체력 ${nf(mhp(x))} · ${mt(mul(ELM[x.sp],he))}</span></span><span>교체</span></button>`).join('')}<button onclick="swp=null;render()">취소</button></div></div>`;
 e.style.display='flex';if(h!==detH){e.innerHTML=h;detH=h}return}if(!m){sel=null;detH='';e.style.display='none';e.innerHTML='';return}
 const h=`<div class="card" style="width:min(94%,420px);max-height:85%;overflow:auto"><div class="row"><div class="aura" style="--gc:${G[m.g].c}"><span class="big">${SP[m.sp][1]}</span></div><div class="grow"><div style="font-size:19px">${SP[m.sp][0]}</div><div>${tagH(m.g)} ${elT(ELM[m.sp])} <span class="tag" style="background:#3a5a8c;color:#fff">${RL(m.sp)[0]} ${RL(m.sp)[1]}</span> <span class="mu">Lv.${m.lv}</span></div><div class="mu">${RL(m.sp)[5]}</div><div class="mu">전투력 ${nf(pw(m))} · 체력 ${nf(mhp(m))} · 장비 +${nf(eqPw(m))}</div><div style="margin-top:4px">${effLine(m)}</div></div></div>${eqBlock(m)}${haBlock(m)}
-<div style="display:grid;gap:8px;margin-top:12px"><button class="s" onclick="lvUp(${m.id})" ${m.lv>=50?'disabled':''}>레벨업 ${nf(lvC(m).g)}G+${nf(lvC(m).s)}💎</button>${m.st=='disp'?'<span class="mu">파견 중</span>':`<button class="s" onclick="tgl(${m.id})">${m.st=='hunt'?'사냥 해제':'사냥 편성'}</button>`}${evBtn(m)}<button onclick="sel=null;render()">닫기</button></div></div>`;
+<div style="display:grid;gap:8px;margin-top:12px"><button class="s" onclick="lvUp(${m.id})" ${m.lv>=50?'disabled':''}>레벨업 ${nf(lvC(m).g)}G+${nf(lvC(m).s)}💎</button>${m.st=='disp'?'<span class="mu">'+(m.tr?'훈련 중':'파견 중')+'</span>':`<button class="s" onclick="tgl(${m.id})">${m.st=='hunt'?'사냥 해제':'사냥 편성'}</button>`}${evBtn(m)}<button onclick="sel=null;render()">닫기</button></div></div>`;
 e.style.display='flex';if(h!==detH){e.innerHTML=h;detH=h}}
 function boom(e,k,big){const ar=e&&e.closest('.arena');if(!ar||matchMedia('(prefers-reduced-motion: reduce)').matches)return;
 const R=ar.getBoundingClientRect(),E=e.getBoundingClientRect(),x=E.left+E.width/2-R.left,y=E.top+E.height/2-R.top,c=EFX[k],n=big?20:14,sc=big?1.5:1,col=EL[k][2];
@@ -479,6 +490,93 @@ try{if(u)new URL(u)}catch(e){return toast('주소 형식이 올바르지 않아�
 S.boss={on:document.getElementById('bo').checked,url:u,mode:document.getElementById('bm').value,title:document.getElementById('bt').checked};
 applyTitle();save();closeSet();toast('저장했어요');if(test)setTimeout(bossGo,300)}
 load();refreshBn();applyTitle();dunInit();catchUp();render();lastAch=achCount();setInterval(tick,1000);
+</script>
+<script>
+/* ===== 추가 콘텐츠: 일일 퀘스트·출석 / 무한의 탑 / 훈련소 / 도감 보상·칭호 ===== */
+let xpv='q',xsel=null;
+const XT=[['q','🎯','퀘스트'],['t','🗼','탑'],['r','🏋️','훈련'],['c','👑','칭호']];
+const xY=()=>new Date(Date.now()-864e5).toLocaleDateString('sv');
+const xS=()=>1+(S.st.maxS||1)/20;
+function xI(){const x=S.x=S.x||{};
+if(x.qd!==today()){x.qd=today();x.q={k:S.st.kills,d:S.st.dun,p:S.st.disp,h:S.st.hatch,u:S.st.up};x.qc={};x.qa=0;x.tk=5}
+x.att=x.att||{s:0,l:'',m:0};x.tw=x.tw||{f:1,b:0};x.tr=x.tr||[null,null];x.dr=x.dr||{};x.tit=x.tit||0;x.tn=x.tn||0;return x}
+/* 보상 지급/표시 (재화는 사냥터 진행도에 맞춰 커져요) */
+function xGive(r,dry){const k=xS(),t=[];
+if(r.g){const v=Math.floor(r.g*k);if(!dry)S.gold+=v;t.push('🪙'+nf(v))}
+if(r.s){const v=Math.floor(r.s*k);if(!dry)S.stone+=v;t.push('💎'+nf(v))}
+if(r.o){const v=Math.floor(r.o*k);if(!dry)S.ore+=v;t.push('🔨'+nf(v))}
+if(r.egg){if(!dry){r.egg=='p'?giveEgg(null,true):giveEgg(null,false,r.egg)}t.push('🥚'+({p:'고급 알',h:'영웅 알',l:'전설 알'}[r.egg]))}
+return t.join(' ')}
+/* --- 일일 퀘스트 --- */
+const XQ=[
+{id:'k',n:'사냥터에서 적 처치',i:'⚔️',need:150,v:x=>S.st.kills-x.q.k},
+{id:'d',n:'일일 던전 클리어',i:'🏰',need:2,v:x=>S.st.dun-x.q.d},
+{id:'p',n:'파견 완료',i:'🧭',need:3,v:x=>S.st.disp-x.q.p},
+{id:'h',n:'알 부화',i:'🥚',need:3,v:x=>S.st.hatch-x.q.h},
+{id:'u',n:'장비 강화',i:'🔨',need:2,v:x=>S.st.up-x.q.u}];
+const XQR={g:400,s:3,o:2},XQB={g:1500,s:10,egg:'p'};
+function xQc(id){const x=xI(),q=XQ.find(a=>a.id==id);if(!q||x.qc[id]||q.v(x)<q.need)return;x.qc[id]=1;const t=xGive(XQR);save();render();toast('퀘스트 보상: '+t)}
+function xQb(){const x=xI();if(x.qa||!XQ.every(q=>x.qc[q.id]))return;x.qa=1;const t=xGive(XQB);save();render();toast('전체 완료 보너스: '+t)}
+/* --- 출석 (7일 주기, 하루 거르면 처음부터) --- */
+const XA=[{g:300},{s:5},{o:6},{g:1000,s:8},{egg:'p'},{o:15,s:15},{egg:'h'}];
+function xAi(){const a=xI().att,done=a.l===today(),cur=done||a.l===xY()?a.s:0;return{done,cur,next:done?cur:cur+1,days:done?((cur-1)%7)+1:cur%7}}
+function xAc(){const x=xI(),a=x.att,i=xAi();if(i.done)return;a.s=i.next;a.l=today();a.m=Math.max(a.m||0,a.s);const t=xGive(XA[(a.s-1)%7]);save();render();toast('출석 '+a.s+'일째 보상: '+t)}
+/* --- 무한의 탑 --- */
+const xTE=f=>Math.floor(100*Math.pow(1.2,f-1));
+function xTower(){const x=xI();if(x.tk<=0)return toast('오늘 탑 도전권을 모두 썼어요');
+const f=x.tw.f,e=dEl(f),pt=dParty(f);if(!pt.length)return toast('몬스터가 필요해요');
+const R=sim(pt,e,xTE(f));
+if(R.win){x.tk--;const g=gm(300+f*80),s=sm(5+f*1.2),o=2+Math.floor(f/4);S.gold+=g;S.stone+=s;S.ore+=o;
+let t=f+'층 돌파! 🪙'+nf(g)+' 💎'+nf(s)+' 🔨'+o;
+if(f%5==0){giveEgg(null,true);t+=' 🥚고급 알'}
+if(f%10==0){t+=' · '+itN(mkItem(f*4))}
+x.tw.f=f+1;x.tw.b=Math.max(x.tw.b||0,f);x.tres=t;toast('🗼 '+t)}
+else{x.tres=f+'층 도전 실패… 도전권은 차감되지 않았어요';toast(x.tres)}
+save();render()}
+/* --- 훈련소 --- */
+const XTR=[{n:'30분',s:1800,l:1},{n:'3시간',s:10800,l:3},{n:'8시간',s:28800,l:6}],XTC=30;
+function xTs(i,k){const x=xI(),m=S.mons.find(a=>a.id==xsel)||S.mons.find(a=>a.st=='idle'&&a.lv<XTC);
+if(!m||m.st!='idle'||m.lv>=XTC||x.tr[i])return toast('훈련할 몬스터를 골라 주세요');
+m.st='disp';m.tr=1;x.tr[i]={m:m.id,t0:now(),dur:XTR[k].s,l:XTR[k].l};save();render()}
+function xTc(i){const x=xI(),t=x.tr[i];if(!t||now()<t.t0+t.dur*1000)return;const m=mon(t.m);let msg='훈련 완료!';
+if(m){const g=Math.max(0,Math.min(t.l,50-m.lv));m.lv+=g;m.st='idle';delete m.tr;msg=nm(m)+' 훈련 완료! Lv.'+m.lv+(g?' (+'+g+')':'')}
+x.tr[i]=null;x.tn++;save();render();toast(msg)}
+/* --- 도감 완성 보상 --- */
+const XDM=[[.1,{g:1500,s:10}],[.25,{g:5000,s:30,o:10}],[.5,{g:15000,s:80,egg:'p'}],[.75,{g:40000,s:200,egg:'h'}],[1,{g:100000,s:500,egg:'l'}]];
+const XGR=[{g:2000},{g:5000,s:20},{s:60,egg:'p'},{s:120,egg:'h'},{s:250,egg:'l'},{s:500,o:50,egg:'l'}];
+const xDn=()=>Object.keys(S.dex).length,xDx=()=>xDn()/SP.length;
+function xGd(g){const l=SP.map((a,i)=>i).filter(i=>SP[i][2]==g);return{tot:l.length,have:l.filter(i=>S.dex[i]).length}}
+function xDok(key){const t=key[0],n=+key.slice(1);if(t=='m')return xDn()>=Math.ceil(SP.length*XDM[n][0]);const d=xGd(n);return d.tot>0&&d.have>=d.tot}
+function xDc(key){const x=xI();if(x.dr[key]||!xDok(key))return;x.dr[key]=1;const r=key[0]=='m'?XDM[+key.slice(1)][1]:XGR[+key.slice(1)],t=xGive(r);save();render();toast('도감 보상: '+t)}
+function xDexCard(){const x=xI();let c=0;
+const rows=XDM.map(([p,r],i)=>{const k='m'+i,ok=xDok(k),got=x.dr[k];if(!got&&ok)c++;return`<div class="row" style="margin:4px 0"><div class="grow">도감 ${Math.ceil(SP.length*p)}종 <span class="mu">(${Math.round(p*100)}%)</span><br><span class="mu" style="font-size:12px">${xGive(r,1)}</span></div>${got?'<span style="color:#4fd1a5">✅</span>':`<button class="s" ${ok?'':'disabled'} onclick="xDc('${k}')">받기</button>`}</div>`}).join('');
+const gr=G.map((q,g)=>{const d=xGd(g);if(!d.tot)return'';const k='g'+g,ok=xDok(k),got=x.dr[k];if(!got&&ok)c++;return`<div class="row" style="margin:4px 0"><div class="grow"><span style="color:${q.c}">${q.n}</span> 전종 수집 <span class="mu">${d.have}/${d.tot}</span><br><span class="mu" style="font-size:12px">${xGive(XGR[g]||{g:10000},1)}</span></div>${got?'<span style="color:#4fd1a5">✅</span>':`<button class="s" ${ok?'':'disabled'} onclick="xDc('${k}')">받기</button>`}</div>`}).join('');
+return`<details class="card"><summary style="cursor:pointer">🎁 도감 완성 보상 ${c?'<b style="color:var(--ac)">('+c+'개 받을 수 있어요)</b>':''}</summary><div class="mu" style="margin:8px 0 2px">등록한 종 수 보상</div>${rows}<div class="mu" style="margin:8px 0 2px">등급별 전종 수집 보상</div>${gr}</details>`}
+/* --- 칭호 --- */
+const XTI=[['새내기 조련사','처음부터 가지고 있어요',()=>true],['알 수집가','도감 10% 등록',()=>xDx()>=.1],['도감 박사','도감 50% 등록',()=>xDx()>=.5],['도감 마스터','도감 100% 등록',()=>xDx()>=1],['탑 도전자','무한의 탑 10층 돌파',()=>(xI().tw.b||0)>=10],['탑의 지배자','무한의 탑 30층 돌파',()=>(xI().tw.b||0)>=30],['꾸준한 조련사','7일 연속 출석',()=>(xI().att.m||0)>=7],['훈련 교관','훈련 20회 완료',()=>xI().tn>=20],['전설 조련사','전설 이상 몬스터 보유',()=>S.mons.some(m=>m.g>=3)],['심층 탐험가','일일 던전 20층 돌파',()=>(S.dun.max||S.dun.floor)-1>=20]];
+function xTit(i){if(!XTI[i]||!XTI[i][2]())return;xI().tit=i;save();render()}
+/* --- 화면 --- */
+const xTn=()=>XTI[xI().tit]?XTI[xI().tit][0]:XTI[0][0];
+function xVq(){const x=xI(),a=xAi();
+const att=`<div class="card"><div class="row"><div class="grow"><b>📅 출석 보상</b> <span class="mu">${a.cur}일 연속</span></div><button ${a.done?'disabled':''} onclick="xAc()">${a.done?'✅ 오늘 완료':'출석 보상 받기'}</button></div><div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-top:8px;text-align:center;font-size:12px">${XA.map((r,i)=>{const got=i<a.days,now_=!a.done&&i==a.days;return`<div style="border:1px solid ${now_?'var(--ac)':'var(--ln)'};border-radius:8px;padding:4px 0;opacity:${got?.45:1}"><div class="mu">${i+1}일</div><div>${r.egg?'🥚':r.o&&!r.g&&!r.s?'🔨':r.s&&!r.g?'💎':'🪙'}</div>${got?'✅':''}</div>`}).join('')}</div><div class="mu" style="margin-top:6px;font-size:12px">하루라도 거르면 1일부터 다시 시작해요. 7일차 보상은 영웅 알이에요.</div></div>`;
+const qs=XQ.map(q=>{const v=Math.max(0,q.v(x)),ok=v>=q.need,got=x.qc[q.id];return`<div class="card"><div class="row"><div style="font-size:26px">${q.i}</div><div class="grow"><div>${q.n} <span class="mu">${Math.min(v,q.need)}/${q.need}</span></div><div class="bar"><i style="width:${Math.min(100,v/q.need*100)}%"></i></div><div class="mu" style="font-size:12px;margin-top:2px">${xGive(XQR,1)}</div></div>${got?'<span style="color:#4fd1a5">✅</span>':`<button ${ok?'':'disabled'} onclick="xQc('${q.id}')">받기</button>`}</div></div>`}).join('');
+const all=XQ.every(q=>x.qc[q.id]);
+return att+`<div class="mu" style="margin:10px 0 4px">🎯 일일 퀘스트 <span style="font-size:12px">(매일 자정에 초기화)</span></div>`+qs+`<div class="card"><div class="row"><div class="grow">🎁 전부 완료 보너스<br><span class="mu" style="font-size:12px">${xGive(XQB,1)}</span></div>${x.qa?'<span style="color:#4fd1a5">✅</span>':`<button ${all?'':'disabled'} onclick="xQb()">받기</button>`}</div></div>`}
+function xVt(){const x=xI(),f=x.tw.f,e=dEl(f),E=xTE(f),rec=Math.ceil(E*.6/10)*10,P=Math.floor(dParty(f).reduce((a,m)=>a+ef(m,e),0)),ok=P>=rec;
+return`<div class="card"><div class="big" style="text-align:center">🗼</div><p style="text-align:center"><b style="font-size:20px">${f}층</b> <span class="mu">최고 ${x.tw.b||0}층 돌파</span><br>${elT(e)} 추천 전투력 <b>${nf(rec)}</b> · 내 파티 <b style="color:${ok?'#4fd1a5':'#ff8a8a'}">${nf(P)}</b> ${ok?'✅':'⚠️ 부족해요'}<br><span style="line-height:2"><span class="mu">상성</span> <span style="color:#4fd1a5">유리</span> ${Object.keys(WK).filter(a=>WK[a].includes(e)).map(elT).join(' ')} <span style="color:#ff8a8a">불리</span> ${WK[e].map(elT).join(' ')}</span></p><p style="text-align:center">오늘 남은 도전권 <b style="color:var(--ac)">${x.tk}</b>/5 <span class="mu">(진 도전은 차감 안 돼요)</span></p><div class="mu" style="text-align:center;font-size:12px;margin-bottom:8px">클리어 보상 🪙${nf(gm(300+f*80))} 💎${nf(Math.floor((5+f*1.2)*(1+BN.g/100)))} 🔨${2+Math.floor(f/4)}${f%5==0?' 🥚고급 알':''}${f%10==0?' 🎒장비':''}</div><button style="width:100%" ${x.tk>0?'':'disabled'} onclick="xTower()">🗼 도전하기</button>${x.tres?`<p class="mu" style="text-align:center">${x.tres}</p>`:''}</div><p class="mu">끝이 없는 탑이에요. 5층마다 고급 알, 10층마다 장비가 나와요. 상성을 반영해 가장 강한 3마리가 자동 출전해요.</p>`}
+function xVr(){const x=xI(),av=S.mons.filter(m=>m.st=='idle'&&m.lv<XTC),cur=av.find(m=>m.id==xsel)||av[0];
+const slots=x.tr.map((t,i)=>{if(!t)return`<div class="card"><div class="mu">훈련장 ${i+1} · 비어 있음</div><div style="margin-top:6px;display:grid;grid-template-columns:repeat(3,1fr);gap:6px">${XTR.map((o,k)=>`<button class="s" ${cur?'':'disabled'} onclick="xTs(${i},${k})">${o.n}<br><span style="font-size:12px">Lv +${o.l}</span></button>`).join('')}</div></div>`;
+const m=mon(t.m),end=t.t0+t.dur*1000,r=Math.max(0,Math.ceil((end-now())/1000));
+return`<div class="card"><div class="row"><div class="big" style="font-size:30px">${m?SP[m.sp][1]:'❔'}</div><div class="grow">${m?nm(m)+' Lv.'+m.lv:'(몬스터 없음)'} <span class="mu">→ Lv +${t.l}</span><div class="mu">${r?`남은 시간 <span data-end="${end}">${fmt(r)}</span>`:'훈련 끝!'}</div></div><button ${r?'disabled':''} onclick="xTc(${i})">${r?'훈련 중':'수령'}</button></div></div>`}).join('');
+return`<div class="card"><div class="mu">훈련 보낼 몬스터 (Lv.${XTC} 미만, 쉬는 중인 몬스터)</div><select id="xsel" onchange="xsel=this.value;render()">${av.map(m=>`<option value="${m.id}" ${m===cur?'selected':''}>${SP[m.sp][1]} ${nm(m)} Lv.${m.lv}</option>`).join('')||'<option value="">훈련할 수 있는 몬스터 없음</option>'}</select></div>`+slots+`<p class="mu">훈련 중에는 사냥·파견·던전에 나갈 수 없어요. 끝나면 골드 없이 레벨이 올라요 (최대 Lv.50).</p>`}
+function xVc(){return`<div class="card"><div class="mu">현재 칭호</div><div style="font-size:20px">👑 ${xTn()}</div></div>`+XTI.map((t,i)=>{const ok=t[2](),on=xI().tit==i;return`<div class="card"><div class="row"><div class="grow"><b>${t[0]}</b><div class="mu" style="font-size:12px">${t[1]}</div></div>${on?'<span style="color:#4fd1a5">착용 중</span>':ok?`<button class="s" onclick="xTit(${i})">착용</button>`:'<span class="mu">🔒</span>'}</div></div>`}).join('')}
+function xPlay(){const nav=XT.map(t=>`<button class="s" style="flex:1;padding:6px 2px;${xpv==t[0]?'outline:2px solid var(--ac)':''}" onclick="xpv='${t[0]}';render()">${t[1]}<br>${t[2]}</button>`).join('');
+return`<h2>도전 <span class="mu" style="font-size:13px">👑 ${xTn()}</span></h2><div class="row" style="gap:6px;margin-bottom:8px">${nav}</div>`+({q:xVq,t:xVt,r:xVr,c:xVc}[xpv]||xVq)()}
+function xN(){const x=xI();let n=0;XQ.forEach(q=>{if(!x.qc[q.id]&&q.v(x)>=q.need)n++});if(!x.qa&&XQ.every(q=>x.qc[q.id]))n++;if(!xAi().done)n++;XDM.forEach((a,i)=>{if(!x.dr['m'+i]&&xDok('m'+i))n++});G.forEach((q,g)=>{if(xGd(g).tot&&!x.dr['g'+g]&&xDok('g'+g))n++});x.tr.forEach(t=>{if(t&&now()>=t.t0+t.dur*1000)n++});return n}
+/* --- 등록 --- */
+TABS.push(['play','🎯','도전']);V.play=xPlay;
+const _vdex=V.dex;V.dex=function(){return xDexCard()+_vdex()};
+const _render=render;render=function(){_render();try{const b=document.querySelectorAll('#nv button')[TABS.length-1];if(b&&xN()>0)b.innerHTML=b.innerHTML.replace('<br>','🔴<br>')}catch(e){}};
 </script>
 <script>
 /* ===== 클라우드(Supabase) 연동 =====
